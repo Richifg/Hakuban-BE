@@ -6,7 +6,8 @@
   "dependencies": {
     "express": "^4.17.1",
     "faunadb": "^4.3.0",
-    "nodemon": "^2.0.12"
+    "nodemon": "^2.0.12",
+    "ws": "^8.1.0"
   },
   "devDependencies": {},
   "scripts": {

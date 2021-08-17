@@ -1,7 +1,11 @@
 
 
-// express app
 const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
+
+
+// express app
 const app = express() 
 const port = 8080;
 
@@ -13,6 +17,25 @@ const faunaDomain = 'db.us.fauna.com';
 const faunadb = require('faunadb');
 const q = faunadb.query;
 const dbClient = new faunadb.Client({ domain: faunaDomain, secret: faunaKey });
+
+
+// web socket
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+    ws.on('message', (msg) => {
+        console.log(`received: ${msg}`);
+        wss.clients.forEach((client) => {
+            if (client.readyState === 1) {
+                client.send(`Broadcasting: ${msg}`)
+            }
+        })
+    });
+
+    ws.send('Hi there, you rock!');
+});
+
 
 const db = {
     async read() {
@@ -42,14 +65,13 @@ const db = {
         }
     },
     async edit({ id, ...rest }) {
-        console.log(`editting item ${id}`, rest);
+        console.log(`editting item ${id}`);
         try {
-            const newItem = await dbClient.query(q.Replace(q.Ref(q.Collection('items'), id), rest));
+            const newItem = await dbClient.query(q.Replace(q.Ref(q.Collection('items'), id), { data: rest }));
             return ({ ...newItem.data, id: newItem.ref.id });
         } catch (e) {
             return e.description
         }
-
     }
 }
 
@@ -58,19 +80,8 @@ const db = {
 app.get('/', (req, res) => {
     res.send('Hello World!')
 });
-  
-app.listen(port, async () => {
-    console.log(`Test app listening at http://localhost:${port}`)
-    try {
-        const res = await db.edit({
-            id: '307101658101317699',
-            type: "text",
-            content: "Second Note!",
-            coordinates: "200,35"
-        });
-        console.log(res);
-    } catch (e) {
-        console.log(e); 
-    }
+
+server.listen(port, () => {
+    console.log(`Opened a websocket server at ${server.address().port}`);
 });
 
