@@ -1,28 +1,21 @@
-
-
+require('dotenv').config()
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 
 
 // express app
-const app = express() 
-const port = 8080;
+const app = express();
 
 // fauna db
-// const faunaKey = process.env.FAUNA_KEY;
-// const faunaDomain = process.env.FAUNA_DOMAIN;
-const faunaKey = 'fnAEQbuw1xAAQmoFDjaSLcunvL8Ok7rCCbpVXX7T';
-const faunaDomain = 'db.us.fauna.com';
 const faunadb = require('faunadb');
 const q = faunadb.query;
-const dbClient = new faunadb.Client({ domain: faunaDomain, secret: faunaKey });
+const dbClient = new faunadb.Client({ domain: process.env.FAUNA_DOMAIN, secret: process.env.FAUNA_KEY });
 
 
 // web socket
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
-
 wss.on('connection', (ws) => {
     ws.on('message', (msg) => {
         console.log(`received: ${msg}`);
@@ -32,7 +25,6 @@ wss.on('connection', (ws) => {
             }
         })
     });
-
     ws.send('Hi there, you rock!');
 });
 
@@ -81,7 +73,7 @@ app.get('/', (req, res) => {
     res.send('Hello World!')
 });
 
-server.listen(port, () => {
+server.listen(process.env.PORT, () => {
     console.log(`Opened a websocket server at ${server.address().port}`);
 });
 
