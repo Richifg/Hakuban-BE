@@ -23,7 +23,7 @@ interface Item {
 }
 
 const db = {
-    async readAll(roomId: string) {
+    async readAllItems(roomId: string): Promise<Item[]> {
         console.log('reading items');
         try {
             const items = (await faunaClient.query<FaunaDocumentList<Item>>(q.Map(q.Paginate(q.Documents(q.Collection(roomId))), q.Lambda(x => q.Get(x))))).data;
@@ -32,7 +32,7 @@ const db = {
             return e.description;
         }
     },
-    async addItem(roomId: string, item: Item) {
+    async addItem(roomId: string, item: Item): Promise<Item> {
         console.log(`adding new item type: ${item.type}`);
         try {
             const newItem = await faunaClient.query<FaunaDocument<Item>>(q.Create(q.Collection(roomId), { data: item }));
@@ -41,7 +41,7 @@ const db = {
             return e.description;
         }
     },
-    async removeItem(roomId: string, id: string) { 
+    async removeItem(roomId: string, id: string): Promise<void> { 
         console.log(`removing ${id}`);
         try {
             return faunaClient.query(q.Delete(q.Ref(q.Collection(roomId), id)));
@@ -49,7 +49,7 @@ const db = {
             return e.description;
         }
     },
-    async editItem(roomId: string, { id, ...rest }: Item) {
+    async editItem(roomId: string, { id, ...rest }: Item): Promise<Item> {
         console.log(`editting item ${id}`);
         try {
             const newItem = await faunaClient.query<FaunaDocument<Item>>(q.Replace(q.Ref(q.Collection(roomId), id), { data: rest }));
@@ -58,7 +58,15 @@ const db = {
             return e.description;
         }
     },
-    async createRoom(roomId: string) {
+    async doesRoomExist(roomId: string): Promise<boolean> {
+        console.log(`checking room ${roomId}`);
+        try {
+            return faunaClient.query(q.Exists(q.Collection(roomId)));
+        } catch (e) {
+            return e.description;
+        }
+    },
+    async createRoom(roomId: string): Promise<void> {
         console.log(`creating ${roomId}`);
         try {
             await faunaClient.query(q.CreateCollection({ name: roomId, history_days: 2 }));
@@ -66,7 +74,7 @@ const db = {
             return e.description;
         }
     },
-    async deleteRoom(roomId: string) {
+    async deleteRoom(roomId: string): Promise<void> {
         console.log(`deleting room ${roomId}`);
         try {
             await faunaClient.query(q.Delete(q.Collection(roomId)));
