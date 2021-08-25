@@ -5,6 +5,7 @@ import http from 'http';
 import WebSocket, { AddressInfo } from 'ws';
 
 import db from './services/faunaDB';
+import RoomManager from './services/RoomManager';
 
 
 // express app
@@ -14,7 +15,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const activeRooms: { [key: string]: WebSocket[] } = {};
+const roomManager = new RoomManager();
 
 wss.on('connection', async (ws: WebSocket, req) => {
     const urlParams = new URLSearchParams(req.url?.split('/')[1]);
@@ -27,20 +28,18 @@ wss.on('connection', async (ws: WebSocket, req) => {
         ws.send(`Room ${roomId} does not exist`);
         ws.terminate();
     } else {
-        if (!activeRooms[roomId]) activeRooms[roomId] = [ws];
-        else activeRooms[roomId].push(ws);
-
+        roomManager.addUser(roomId, ws);
         ws.send('Hi there, you rock!');
         ws.on('message', (msg: string) => {
             console.log(`received: ${msg}`);
-            activeRooms[roomId].forEach((client) => {
+            roomManager.getRoomUsers(roomId).forEach((client) => {
                 if (client.readyState === 1) {
                     client.send(`Broadcasting: ${msg}`)
                 }
             })
         });
         ws.on('close', () => {
-            // add code here to remove ws from activeRooms
+            roomManager.removeUser(roomId, ws);
         })
 
     }
