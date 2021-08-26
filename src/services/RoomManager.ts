@@ -1,4 +1,4 @@
-import WebSocket from 'ws';
+import WebSocket from "ws";
 
 class RoomManager {
     private activeRooms: { [key: string]: WebSocket[] };
@@ -19,17 +19,17 @@ class RoomManager {
         return this.activeRooms[roomId] || [];
     }
     
-    createRoom(roomId: string) {
+    createRoom(roomId: string): void {
         this.activeRooms[roomId] = [];
-        console.log(`room ${roomId} created`)
+        console.log(`room ${roomId} created`);
     }
     
-    deleteRoom(roomId: string) {
+    deleteRoom(roomId: string): void {
         delete this.activeRooms[roomId];
-        console.log(`room ${roomId} deleted`)
+        console.log(`room ${roomId} deleted`);
     }
     
-    addUser(roomId: string, ws: WebSocket) {
+    addUser(roomId: string, ws: WebSocket): void {
         if (!this.activeRooms[roomId]) {
             this.createRoom(roomId);
         }
@@ -37,13 +37,13 @@ class RoomManager {
         console.log(`some entered room ${roomId}, new count: ${this.getRoomUserCount(roomId)}`);
     }
     
-    removeUser(roomId: string, ws: WebSocket) {
+    removeUser(roomId: string, ws: WebSocket): void {
         if (this.activeRooms[roomId]) {
             this.activeRooms[roomId] = this.activeRooms[roomId].filter(socket => socket !== ws);
         }
         console.log(`someone left room ${roomId}, new count: ${this.getRoomUserCount(roomId)}`);
     }
 
-};
+}
 
 export default RoomManager;
