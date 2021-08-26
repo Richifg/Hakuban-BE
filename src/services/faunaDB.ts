@@ -1,4 +1,4 @@
-import faunaDB from "faunadb";
+import faunaDB from 'faunadb';
 
 const q = faunaDB.query;
 const faunaClient = new faunaDB.Client({
@@ -23,7 +23,7 @@ interface Item {
 
 const db = {
     async readAllItems(roomId: string): Promise<Item[]> {
-        console.log("reading items");
+        console.log('reading items');
         try {
             const items = (await faunaClient.query<FaunaDocumentList<Item>>(q.Map(q.Paginate(q.Documents(q.Collection(roomId))), q.Lambda(x => q.Get(x))))).data;
             return items.map(item => ({ ...item.data, id: item.ref.id }));
