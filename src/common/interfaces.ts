@@ -10,17 +10,11 @@ export interface Item extends NewItem {
 }
 
 // Messages sent through ws
-export interface ErrorMessage {
-    type: 'error';
-    error: string;
-}
-export interface ItemMessage {
-    type: 'item';
-    item: Item;
-}
-export interface CollectionMessage {
-    type: 'collection';
-    items: Item[];
+export interface Message {
+    type: 'error' | 'item' | 'collection';
+    error?: string;
+    item?: Item;
+    items?: Item[];
 }
 
 // TODO: find out how to merge types
