@@ -13,8 +13,8 @@ class RoomManager<User> {
         return this.activeRooms[roomId] || [];
     }
     
-    createRoom(roomId: string): void {
-        this.activeRooms[roomId] = [];
+    createRoom(roomId: string) {
+         this.activeRooms[roomId] = [];
         // console.log(`room ${roomId} created`);
     }
     

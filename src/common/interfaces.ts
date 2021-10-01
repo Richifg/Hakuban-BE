@@ -1,22 +1,53 @@
 
-// Items created by users
-export interface NewItem {
-    itemType: string;
+interface WSItemMessage {
+    type: 'item',
+    content: Item;
+}
+
+interface WSCollectionMessage {
+    type: 'collection',
+    content: Item[],
+}
+
+interface WSIdMessage {
+    type: 'id',
     content: string;
+}
+
+interface WSChatMessage {
+    type: 'chat',
+    content: string;
+    from: string;
+}
+
+interface WSErrorMessage {
+    type: 'error',
+    content: string;
+}
+
+// Messages sent via webSocket
+export type WSMessage = WSItemMessage | WSCollectionMessage | WSIdMessage | WSChatMessage | WSErrorMessage;
+
+interface ItemBase {
+    id?: string;
     coordinates: string;
 }
-export interface Item extends NewItem {
-    id: string;
+
+interface Note {
+    type: 'note';
+    content: string;
+    height: number;
+    width: number;
+    color: string;
 }
 
-// Messages sent through ws
-export interface Message {
-    type: 'error' | 'item' | 'collection';
-    error?: string;
-    item?: Item;
-    items?: Item[];
+interface Text {
+    type: 'text',
+    content: string;
+    fontSize: string;
+    color: string;
 }
 
-// TODO: find out how to merge types
 
-
+// Items created by users
+export type Item = ItemBase & (Note | Text)

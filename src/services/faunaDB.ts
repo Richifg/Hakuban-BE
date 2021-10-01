@@ -1,5 +1,5 @@
 import faunaDB from 'faunadb';
-import { Item, NewItem } from '../common/interfaces';
+import { Item } from '../common/interfaces';
 
 
 const q = faunaDB.query;
@@ -27,7 +27,7 @@ const db = {
             return e.description;
         }
     },
-    async addItem(roomId: string, item: NewItem): Promise<Item> {
+    async addItem(roomId: string, item: Item): Promise<Item> {
         // console.log(`adding new item type: ${item.type}`);
         try {
             const newItem = await faunaClient.query<FaunaDocument<Item>>(q.Create(q.Collection(roomId), { data: item }));
