@@ -2,7 +2,7 @@
   "name": "collabtool-be",
   "version": "0.0.1",
   "description": "The backend for an online collaboration tool",
-  "main": "index.js",
+  "main": "dist/app.js",
   "dependencies": {
     "express": "^4.17.1",
     "faunadb": "^4.4.1",
