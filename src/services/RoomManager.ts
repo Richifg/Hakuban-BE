@@ -1,5 +1,10 @@
+interface Room<User> {
+    users: User[];
+    password?: string;
+}
+
 class RoomManager<User> {
-    private activeRooms: { [key: string]: User[] };
+    private activeRooms: { [key: string]: Room<User> };
 
     constructor() {
         this.activeRooms = {};
@@ -10,33 +15,37 @@ class RoomManager<User> {
     }
 
     getRoomUsers(roomId: string): User[] {
-        return this.activeRooms[roomId] || [];
+        return this.activeRooms[roomId].users || [];
     }
 
-    createRoom(roomId: string): void {
-        this.activeRooms[roomId] = [];
-        // console.log(`room ${roomId} created`);
+    createRoom(roomId: string, password?: string): void {
+        this.activeRooms[roomId] = { users: [], password };
     }
 
     deleteRoom(roomId: string, callBack?: (user: User) => void): void {
-        callBack && this.activeRooms[roomId].forEach((user) => callBack(user));
+        callBack && this.activeRooms[roomId].users.forEach((user) => callBack(user));
         delete this.activeRooms[roomId];
-        // console.log(`room ${roomId} deleted`);
     }
 
-    addUser(roomId: string, user: User): void {
+    addUser(roomId: string, user: User, password?: string): boolean {
+        // create room first if it doesn't exist
         if (!this.activeRooms[roomId]) {
-            this.createRoom(roomId);
+            this.createRoom(roomId, password);
+            this.activeRooms[roomId].users.push(user);
+            return true;
         }
-        this.activeRooms[roomId].push(user);
-        // console.log(`some entered room ${roomId}, new count: ${this.getRoomUsers(roomId).length}`);
+        const roomPassword = this.activeRooms[roomId].password;
+        if (!roomPassword || roomPassword === password) {
+            this.activeRooms[roomId].users.push(user);
+            return true;
+        }
+        return false;
     }
 
     removeUser(roomId: string, userToRemove: User): void {
         if (this.activeRooms[roomId]) {
-            this.activeRooms[roomId] = this.activeRooms[roomId].filter((user) => user !== userToRemove);
+            this.activeRooms[roomId].users = this.activeRooms[roomId].users.filter((user) => user !== userToRemove);
         }
-        // console.log(`someone left room ${roomId}, new count: ${this.getRoomUsers(roomId).length}`);
     }
 }
 

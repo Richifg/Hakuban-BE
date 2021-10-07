@@ -13,9 +13,7 @@ import WebSocketManager from './services/WebSocketManager';
 const app = express();
 
 // initialize services
-
 const server = http.createServer(app);
-
 const roomManager = new RoomManager<WebSocket>();
 const webSocketManager = new WebSocketManager(server, roomManager, db);
 

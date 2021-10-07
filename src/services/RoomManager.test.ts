@@ -1,6 +1,8 @@
 import RoomManager from './RoomManager';
 
-interface MockUser { a: 1 }
+interface MockUser {
+    a: 1;
+}
 const createMockUser = () => ({ a: 1 } as MockUser);
 let roomManager: RoomManager<MockUser>;
 
@@ -20,7 +22,7 @@ test('can create multiple rooms', () => {
     const ids = roomManager.getActiveRoomIds();
     expect(ids.includes('1')).toBe(true);
     expect(ids.includes('2')).toBe(true);
-}); 
+});
 
 test('can add users to a room', () => {
     roomManager.createRoom('TEST');
@@ -46,6 +48,16 @@ test('can add users to a room', () => {
     expect(otherUsers.includes(userOther)).toBe(true);
 });
 
+test('room can require a password to join', () => {
+    const PASSWORD = '12345678';
+    roomManager.createRoom('TEST', PASSWORD);
+
+    const user = createMockUser();
+    expect(roomManager.addUser('TEST', user, '123')).toBe(false);
+    expect(roomManager.addUser('TEST', user, PASSWORD)).toBe(true);
+    expect(roomManager.getRoomUsers('TEST').length).toBe(1);
+});
+
 test('when adding users, room is created if it doesnt exist', () => {
     expect(roomManager.getActiveRoomIds().length).toBe(0);
 
@@ -53,7 +65,6 @@ test('when adding users, room is created if it doesnt exist', () => {
     const roomIds = roomManager.getActiveRoomIds();
     expect(roomIds.length).toBe(1);
     expect(roomIds[0]).toBe('FIRST');
-    
 });
 
 test('can remove users from a room', () => {
