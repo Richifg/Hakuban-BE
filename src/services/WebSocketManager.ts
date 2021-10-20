@@ -33,8 +33,6 @@ class WebSocketManager {
             } else {
                 this.roomManager.addUser(roomId, ws);
                 try {
-                    // TODO: perhaps the collection and id could be sent in a single message?
-                    // will I ever send collections after the user connects?
                     const userId = NewId();
                     const idMessage: WSMessage = { type: 'id', content: userId };
                     ws.send(JSON.stringify(idMessage));

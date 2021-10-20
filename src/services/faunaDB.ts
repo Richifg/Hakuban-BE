@@ -71,10 +71,12 @@ const db = {
             return e.description;
         }
     },
-    async createRoom(roomId: string): Promise<void> {
+    async createRoom(): Promise<string> {
         // console.log(`creating ${roomId}`);
         try {
+            const roomId = (await faunaClient.query<string>(q.NewId())).substr(-5);
             await faunaClient.query(q.CreateCollection({ name: roomId, history_days: 2 }));
+            return roomId;
         } catch (e) {
             return e.description;
         }
