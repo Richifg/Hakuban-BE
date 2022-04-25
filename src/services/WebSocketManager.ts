@@ -45,13 +45,11 @@ class WebSocketManager {
 
                 ws.on('message', async (msg: string) => {
                     const parsedMsg = JSON.parse(msg) as WSMessage;
-                    console.log(parsedMsg.type);
                     // attemp to modify database based on new message
                     let stringifiedMessage = '';
                     try {
                         if (parsedMsg.type === 'item') {
                             const savedItem = await this.db.addItem(roomId, parsedMsg.content);
-                            console.log(savedItem, 'success');
                             const message: WSMessage = { type: 'item', content: savedItem };
                             stringifiedMessage = JSON.stringify(message);
                         } else if (parsedMsg.type === 'delete') {

@@ -40,7 +40,9 @@ const db = {
             );
         } else {
             // console.log(`editing item: ${item.id}`);
-            editedItem = await faunaClient.query<FaunaDocument<Item>>(q.Create(q.Collection(roomId), { data: item }));
+            editedItem = await faunaClient.query<FaunaDocument<Item>>(
+                q.Create(q.Ref(q.Collection(roomId), id), { data: item }),
+            );
         }
         return { ...editedItem.data, id: editedItem.ref.id };
     },
