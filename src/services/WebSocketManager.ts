@@ -45,20 +45,34 @@ class WebSocketManager {
 
                 ws.on('message', async (msg: string) => {
                     const parsedMsg = JSON.parse(msg) as WSMessage;
-                    console.log(`received: ${parsedMsg}`);
-                    if (parsedMsg.type === 'item') {
-                        try {
+                    console.log(parsedMsg.type);
+                    // attemp to modify database based on new message
+                    let stringifiedMessage = '';
+                    try {
+                        if (parsedMsg.type === 'item') {
                             const savedItem = await this.db.addItem(roomId, parsedMsg.content);
+                            console.log(savedItem, 'success');
                             const message: WSMessage = { type: 'item', content: savedItem };
-                            const stringifiedMessage = JSON.stringify(message);
-                            this.roomManager.getRoomUsers(roomId).forEach((client) => {
-                                if (client.readyState === 1) {
-                                    client.send(stringifiedMessage);
-                                }
-                            });
-                        } catch (e) {
-                            console.log('error broadcasting message', parsedMsg, e);
+                            stringifiedMessage = JSON.stringify(message);
+                        } else if (parsedMsg.type === 'delete') {
+                            const id = parsedMsg.content;
+                            await this.db.removeItem(roomId, id);
+                            const message: WSMessage = { type: 'delete', content: id };
+                            stringifiedMessage = JSON.stringify(message);
                         }
+                    } catch (e) {
+                        console.log('Database write error', msg, e);
+                    }
+
+                    // attempt to broacast message to other users in the room
+                    try {
+                        this.roomManager.getRoomUsers(roomId).forEach((client) => {
+                            if (client.readyState === 1) {
+                                client.send(stringifiedMessage);
+                            }
+                        });
+                    } catch (e) {
+                        console.log('Error broadcasting message', parsedMsg, e);
                     }
                 });
 

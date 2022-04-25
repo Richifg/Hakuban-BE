@@ -19,75 +19,48 @@ interface FaunaDocumentList<T> {
 const db = {
     async readAllItems(roomId: string): Promise<Item[]> {
         // console.log('reading items');
-        try {
-            const items = (
-                await faunaClient.query<FaunaDocumentList<Item>>(
-                    q.Map(
-                        q.Paginate(q.Documents(q.Collection(roomId))),
-                        q.Lambda((x) => q.Get(x)),
-                    ),
-                )
-            ).data;
-            return items.map((item) => ({ ...item.data, id: item.ref.id }));
-        } catch (e) {
-            return e.description;
-        }
+        const items = (
+            await faunaClient.query<FaunaDocumentList<Item>>(
+                q.Map(
+                    q.Paginate(q.Documents(q.Collection(roomId))),
+                    q.Lambda((x) => q.Get(x)),
+                ),
+            )
+        ).data;
+        return items.map((item) => ({ ...item.data, id: item.ref.id }));
     },
     async addItem(roomId: string, item: Item): Promise<Item> {
-        // console.log(`adding new item type: ${item.type}`);
-        try {
-            const newItem = await faunaClient.query<FaunaDocument<Item>>(
-                q.Create(q.Collection(roomId), { data: item }),
+        const { id, ...rest } = item;
+        let editedItem: FaunaDocument<Item>;
+        const itemExists = await faunaClient.query(q.Exists(q.Ref(q.Collection(roomId), id)));
+        if (itemExists) {
+            // console.log(`adding new item type: ${item.type}`);
+            editedItem = await faunaClient.query<FaunaDocument<Item>>(
+                q.Replace(q.Ref(q.Collection(roomId), id), { data: rest }),
             );
-            return { ...newItem.data, id: newItem.ref.id };
-        } catch (e) {
-            return e.description;
+        } else {
+            // console.log(`editing item: ${item.id}`);
+            editedItem = await faunaClient.query<FaunaDocument<Item>>(q.Create(q.Collection(roomId), { data: item }));
         }
+        return { ...editedItem.data, id: editedItem.ref.id };
     },
     async removeItem(roomId: string, id: string): Promise<void> {
         // console.log(`removing ${id}`);
-        try {
-            return faunaClient.query(q.Delete(q.Ref(q.Collection(roomId), id)));
-        } catch (e) {
-            return e.description;
-        }
-    },
-    async editItem(roomId: string, { id, ...rest }: Item): Promise<Item> {
-        // console.log(`editting item ${id}`);
-        try {
-            const newItem = await faunaClient.query<FaunaDocument<Item>>(
-                q.Replace(q.Ref(q.Collection(roomId), id), { data: rest }),
-            );
-            return { ...newItem.data, id: newItem.ref.id };
-        } catch (e) {
-            return e.description;
-        }
+        return faunaClient.query(q.Delete(q.Ref(q.Collection(roomId), id)));
     },
     async doesRoomExist(roomId: string): Promise<boolean> {
         // console.log(`checking room ${roomId}`);
-        try {
-            return faunaClient.query(q.Exists(q.Collection(roomId)));
-        } catch (e) {
-            return e.description;
-        }
+        return faunaClient.query(q.Exists(q.Collection(roomId)));
     },
     async createRoom(): Promise<string> {
         // console.log(`creating ${roomId}`);
-        try {
-            const roomId = (await faunaClient.query<string>(q.NewId())).substr(-5);
-            await faunaClient.query(q.CreateCollection({ name: roomId, history_days: 2 }));
-            return roomId;
-        } catch (e) {
-            return e.description;
-        }
+        const roomId = (await faunaClient.query<string>(q.NewId())).substr(-5);
+        await faunaClient.query(q.CreateCollection({ name: roomId, history_days: 5, ttl: 2 }));
+        return roomId;
     },
     async deleteRoom(roomId: string): Promise<void> {
         // console.log(`deleting room ${roomId}`);
-        try {
-            await faunaClient.query(q.Delete(q.Collection(roomId)));
-        } catch (e) {
-            return e.description;
-        }
+        await faunaClient.query(q.Delete(q.Collection(roomId)));
     },
 };
 
