@@ -1,21 +1,34 @@
-interface WSItemMessage {
-    type: 'item';
-    content: Item;
+export interface Item {
+    id?: string;
+    creationDate?: Date;
 }
 
-interface WSCollectionMessage {
-    type: 'collection';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type UpdateData = { id: string; [key: string]: any };
+
+interface WSAddMessage {
+    type: 'add';
     content: Item[];
+}
+
+interface WSUpdateMessage {
+    type: 'update';
+    content: UpdateData[];
 }
 
 interface WSDeleteMessage {
     type: 'delete';
-    content: string;
+    content: string[];
 }
 
 interface WSIdMessage {
     type: 'id';
     content: string;
+}
+
+interface WSChatMessage {
+    type: 'chat';
+    content: Item;
 }
 
 interface WSErrorMessage {
@@ -24,9 +37,4 @@ interface WSErrorMessage {
 }
 
 // Messages sent via webSocket
-export type WSMessage = WSItemMessage | WSCollectionMessage | WSDeleteMessage | WSIdMessage | WSErrorMessage;
-
-export interface Item {
-    id?: string;
-    creationDate?: Date;
-}
+export type WSMessage = WSAddMessage | WSUpdateMessage | WSDeleteMessage | WSIdMessage | WSChatMessage | WSErrorMessage;

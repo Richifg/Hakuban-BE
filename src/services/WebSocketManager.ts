@@ -3,7 +3,7 @@ import http from 'http';
 
 import faunaDB from './faunaDB';
 import RoomManager from './RoomManager';
-import { WSMessage } from '../common/interfaces';
+import { WSMessage, Item, UpdateData } from '../common/interfaces';
 import { NewId } from '../common/functions';
 
 class WebSocketManager {
@@ -36,41 +36,50 @@ class WebSocketManager {
                     const userId = NewId();
                     const idMessage: WSMessage = { type: 'id', content: userId };
                     ws.send(JSON.stringify(idMessage));
-                    const roomItems = await this.db.readAllItems(roomId);
-                    const collectionMessage: WSMessage = { type: 'collection', content: roomItems };
-                    ws.send(JSON.stringify(collectionMessage));
+                    const roomItems = await this.db.getAllItems(roomId);
+                    const message: WSMessage = { type: 'add', content: roomItems };
+                    ws.send(JSON.stringify(message));
                 } catch (e) {
                     console.log('Error reading items', e);
                 }
 
                 ws.on('message', async (msg: string) => {
                     const parsedMsg = JSON.parse(msg) as WSMessage;
-                    // attemp to modify database based on new message
                     let stringifiedMessage = '';
+                    const { type } = parsedMsg;
+                    // attemp to modify database based on new message
                     try {
-                        if (parsedMsg.type === 'item') {
-                            const savedItem = await this.db.addItem(roomId, parsedMsg.content);
-                            const message: WSMessage = { type: 'item', content: savedItem };
+                        if (type === 'add') {
+                            const items = parsedMsg.content as Item[]; // TODO: why is tsc forcing me to do this???
+                            const addedItems = await Promise.all(items.map((item) => this.db.addItem(roomId, item)));
+                            const message: WSMessage = { type: 'add', content: addedItems };
                             stringifiedMessage = JSON.stringify(message);
-                        } else if (parsedMsg.type === 'delete') {
-                            const id = parsedMsg.content;
-                            await this.db.removeItem(roomId, id);
-                            const message: WSMessage = { type: 'delete', content: id };
+                        } else if (type === 'update') {
+                            const updateData = parsedMsg.content as UpdateData[];
+                            await Promise.all(updateData.map((data) => this.db.updateItem(roomId, data)));
+                            const message: WSMessage = { type: 'update', content: updateData };
+                            stringifiedMessage = JSON.stringify(message);
+                        } else if (type === 'delete') {
+                            const ids = parsedMsg.content as string[];
+                            await Promise.all(ids.map((id) => this.db.removeItem(roomId, id)));
+                            const message: WSMessage = { type: 'delete', content: ids };
                             stringifiedMessage = JSON.stringify(message);
                         }
                     } catch (e) {
-                        console.log('Database write error', msg, e);
+                        const message: WSMessage = { type: 'error', content: 'Database write error: ' + e };
+                        stringifiedMessage = JSON.stringify(message);
                     }
 
                     // attempt to broacast message to other users in the room
                     try {
+                        console.log('broadcasting');
                         this.roomManager.getRoomUsers(roomId).forEach((client) => {
-                            if (client.readyState === 1) {
+                            if (client.readyState === 1 && stringifiedMessage) {
                                 client.send(stringifiedMessage);
                             }
                         });
                     } catch (e) {
-                        console.log('Error broadcasting message', parsedMsg, e);
+                        console.log('Error broadcasting message' + e);
                     }
                 });
 

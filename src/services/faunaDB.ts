@@ -1,5 +1,5 @@
 import faunaDB from 'faunadb';
-import { Item } from '../common/interfaces';
+import { Item, UpdateData } from '../common/interfaces';
 
 const q = faunaDB.query;
 const faunaClient = new faunaDB.Client({
@@ -17,8 +17,7 @@ interface FaunaDocumentList<T> {
 }
 
 const db = {
-    async readAllItems(roomId: string): Promise<Item[]> {
-        // console.log('reading items');
+    async getAllItems(roomId: string): Promise<Item[]> {
         const items = (
             await faunaClient.query<FaunaDocumentList<Item>>(
                 q.Map(
@@ -29,39 +28,50 @@ const db = {
         ).data;
         return items.map((item) => ({ ...item.data, id: item.ref.id }));
     },
+    async itemExists(roomId: string, id: string): Promise<boolean> {
+        return faunaClient.query(q.Exists(q.Ref(q.Collection(roomId), id)));
+    },
     async addItem(roomId: string, item: Item): Promise<Item> {
         const { id, ...rest } = item;
         let editedItem: FaunaDocument<Item>;
-        const itemExists = await faunaClient.query(q.Exists(q.Ref(q.Collection(roomId), id)));
+        if (id) {
+            const itemExists = await this.itemExists(roomId, id);
+            if (itemExists) {
+                editedItem = await faunaClient.query<FaunaDocument<Item>>(
+                    q.Replace(q.Ref(q.Collection(roomId), id), { data: rest }),
+                );
+            } else {
+                editedItem = await faunaClient.query<FaunaDocument<Item>>(
+                    q.Create(q.Ref(q.Collection(roomId), id), { data: item }),
+                );
+            }
+            return { ...editedItem.data, id: editedItem.ref.id };
+        } else throw 'New item has no id';
+    },
+    async updateItem(roomId: string, data: UpdateData): Promise<UpdateData> {
+        const { id, ...rest } = data;
+        const itemExists = await this.itemExists(roomId, id);
         if (itemExists) {
-            // console.log(`adding new item type: ${item.type}`);
-            editedItem = await faunaClient.query<FaunaDocument<Item>>(
-                q.Replace(q.Ref(q.Collection(roomId), id), { data: rest }),
+            const oldItem = await faunaClient.query<FaunaDocument<Item>>(q.Get(q.Ref(q.Collection(roomId), id)));
+            await faunaClient.query<FaunaDocument<Item>>(
+                q.Replace(q.Ref(q.Collection(roomId), id), { data: { ...oldItem.data, ...rest } }),
             );
-        } else {
-            // console.log(`editing item: ${item.id}`);
-            editedItem = await faunaClient.query<FaunaDocument<Item>>(
-                q.Create(q.Ref(q.Collection(roomId), id), { data: item }),
-            );
-        }
-        return { ...editedItem.data, id: editedItem.ref.id };
+            return data;
+        } else throw `Item id:${id} does not exist`;
     },
     async removeItem(roomId: string, id: string): Promise<void> {
-        // console.log(`removing ${id}`);
+        console.log('removing item');
         return faunaClient.query(q.Delete(q.Ref(q.Collection(roomId), id)));
     },
     async doesRoomExist(roomId: string): Promise<boolean> {
-        // console.log(`checking room ${roomId}`);
         return faunaClient.query(q.Exists(q.Collection(roomId)));
     },
     async createRoom(): Promise<string> {
-        // console.log(`creating ${roomId}`);
         const roomId = (await faunaClient.query<string>(q.NewId())).substr(-5);
         await faunaClient.query(q.CreateCollection({ name: roomId, history_days: 5, ttl: 2 }));
         return roomId;
     },
     async deleteRoom(roomId: string): Promise<void> {
-        // console.log(`deleting room ${roomId}`);
         await faunaClient.query(q.Delete(q.Collection(roomId)));
     },
 };
