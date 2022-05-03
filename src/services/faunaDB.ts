@@ -60,7 +60,6 @@ const db = {
         } else throw `Item id:${id} does not exist`;
     },
     async removeItem(roomId: string, id: string): Promise<void> {
-        console.log('removing item');
         return faunaClient.query(q.Delete(q.Ref(q.Collection(roomId), id)));
     },
     async doesRoomExist(roomId: string): Promise<boolean> {
