@@ -1,6 +1,9 @@
+import { LockData } from 'common/interfaces';
+
 interface Room<User> {
     users: User[];
     password?: string;
+    lockedItems: { [key: string]: string };
 }
 
 class RoomManager<User> {
@@ -19,7 +22,7 @@ class RoomManager<User> {
     }
 
     createRoom(roomId: string, password?: string): void {
-        this.activeRooms[roomId] = { users: [], password };
+        this.activeRooms[roomId] = { users: [], password, lockedItems: {} };
     }
 
     deleteRoom(roomId: string, callBack?: (user: User) => void): void {
@@ -31,8 +34,6 @@ class RoomManager<User> {
         // create room first if it doesn't exist
         if (!this.activeRooms[roomId]) {
             this.createRoom(roomId, password);
-            this.activeRooms[roomId].users.push(user);
-            return true;
         }
         const roomPassword = this.activeRooms[roomId].password;
         if (!roomPassword || roomPassword === password) {
@@ -46,6 +47,34 @@ class RoomManager<User> {
         if (this.activeRooms[roomId]) {
             this.activeRooms[roomId].users = this.activeRooms[roomId].users.filter((user) => user !== userToRemove);
         }
+    }
+
+    canEditItem(roomId: string, userId: string, itemId: string): boolean {
+        if (this.activeRooms[roomId]) {
+            const lockUser = this.activeRooms[roomId].lockedItems[itemId];
+            return !lockUser || lockUser === userId;
+        }
+        return false;
+    }
+
+    toggleItemsLock(roomId: string, userId: string, lockData: LockData): string[] {
+        const sucessfullIds: string[] = [];
+        if (this.activeRooms[roomId]) {
+            const { itemIds, lockState } = lockData;
+            const lockedItems = { ...this.activeRooms[roomId].lockedItems };
+            itemIds.forEach((id) => {
+                const lockUser = lockedItems[id];
+                if (lockState && !lockUser) {
+                    lockedItems[id] = userId;
+                    sucessfullIds.push(id);
+                } else if (!lockState && lockUser === userId) {
+                    delete lockedItems[id];
+                    sucessfullIds.push(id);
+                }
+            });
+            this.activeRooms[roomId].lockedItems = lockedItems;
+        }
+        return sucessfullIds;
     }
 }
 

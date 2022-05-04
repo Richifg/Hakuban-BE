@@ -115,3 +115,33 @@ test('runs a cb on each user when deleting a room', () => {
         expect(users.includes(user)).toBe(true);
     });
 });
+
+test('can toggle lock items', () => {
+    roomManager.createRoom('TEST');
+    roomManager.toggleItemsLock('TEST', 'user_BLUE', { itemIds: ['itemId'], lockState: true });
+    expect(roomManager.canEditItem('TEST', 'user_BLUE', 'itemId')).toBe(true);
+    expect(roomManager.canEditItem('TEST', 'user_RED', 'itemId')).toBe(false);
+
+    roomManager.toggleItemsLock('TEST', 'user_BLUE', { itemIds: ['itemId'], lockState: false });
+    expect(roomManager.canEditItem('TEST', 'user_BLUE', 'itemId')).toBe(true);
+    expect(roomManager.canEditItem('TEST', 'user_RED', 'itemId')).toBe(true);
+
+    roomManager.toggleItemsLock('TEST', 'user_RED', { itemIds: ['itemId'], lockState: true });
+    expect(roomManager.canEditItem('TEST', 'user_BLUE', 'itemId')).toBe(false);
+    expect(roomManager.canEditItem('TEST', 'user_RED', 'itemId')).toBe(true);
+});
+
+test('only succesfull toggleLock ids are returned', () => {
+    roomManager.createRoom('TEST');
+    roomManager.toggleItemsLock('TEST', 'user_BLUE', { itemIds: ['1', '2'], lockState: true });
+
+    let ids = roomManager.toggleItemsLock('TEST', 'user_RED', { itemIds: ['1', '2', '3', '4'], lockState: true });
+    expect(ids.length).toBe(2);
+    expect(ids[0]).toBe('3');
+    expect(ids[1]).toBe('4');
+
+    ids = roomManager.toggleItemsLock('TEST', 'user_BLUE', { itemIds: ['1', '2', '3', '4'], lockState: false });
+    expect(ids.length).toBe(2);
+    expect(ids[0]).toBe('1');
+    expect(ids[1]).toBe('2');
+});

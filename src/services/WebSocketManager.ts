@@ -49,21 +49,49 @@ class WebSocketManager {
                     const { type, userId } = parsedMsg;
                     // attemp to modify database based on new message
                     try {
-                        if (type === 'add') {
-                            const items = parsedMsg.content as Item[]; // TODO: why is tsc forcing me to do this???
-                            const addedItems = await Promise.all(items.map((item) => this.db.addItem(roomId, item)));
-                            const message: WSMessage = { type: 'add', content: addedItems, userId };
-                            stringifiedMessage = JSON.stringify(message);
-                        } else if (type === 'update') {
-                            const updateData = parsedMsg.content as UpdateData[];
-                            await Promise.all(updateData.map((data) => this.db.updateItem(roomId, data)));
-                            const message: WSMessage = { type: 'update', content: updateData, userId };
-                            stringifiedMessage = JSON.stringify(message);
-                        } else if (type === 'delete') {
-                            const ids = parsedMsg.content as string[];
-                            await Promise.all(ids.map((id) => this.db.removeItem(roomId, id)));
-                            const message: WSMessage = { type: 'delete', content: ids, userId };
-                            stringifiedMessage = JSON.stringify(message);
+                        switch (type) {
+                            case 'add':
+                                const items = parsedMsg.content as Item[]; // TODO: why is tsc forcing me to do this???
+                                const addedItems = await Promise.all(
+                                    items.map((item) => this.db.addItem(roomId, item)),
+                                );
+                                const addMessage: WSMessage = { type: 'add', content: addedItems, userId };
+                                stringifiedMessage = JSON.stringify(addMessage);
+                                break;
+
+                            case 'update':
+                                const updateData = parsedMsg.content as UpdateData[];
+                                const validUpdates = updateData.filter((data) =>
+                                    this.roomManager.canEditItem(roomId, userId, data.id),
+                                );
+                                if (validUpdates.length) {
+                                    await Promise.all(validUpdates.map((data) => this.db.updateItem(roomId, data)));
+                                    const updateMessage: WSMessage = { type: 'update', content: updateData, userId };
+                                    stringifiedMessage = JSON.stringify(updateMessage);
+                                }
+                                break;
+
+                            case 'delete':
+                                const idsToDelete = parsedMsg.content as string[];
+                                const validIds = idsToDelete.filter((id) =>
+                                    this.roomManager.canEditItem(roomId, userId, id),
+                                );
+                                if (validIds) {
+                                    await Promise.all(validIds.map((id) => this.db.removeItem(roomId, id)));
+                                    const message: WSMessage = { type: 'delete', content: idsToDelete, userId };
+                                    stringifiedMessage = JSON.stringify(message);
+                                }
+                                break;
+
+                            case 'lock':
+                                const lockData = parsedMsg.content;
+                                const sucessfullIds = this.roomManager.toggleItemsLock(roomId, userId, lockData);
+                                if (sucessfullIds.length) {
+                                    const content = { lockState: lockData.lockState, itemIds: sucessfullIds };
+                                    const message: WSMessage = { type: 'lock', content, userId };
+                                    stringifiedMessage = JSON.stringify(message);
+                                }
+                                break;
                         }
                     } catch (e) {
                         const message: WSMessage = {
