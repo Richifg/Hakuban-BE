@@ -3,7 +3,7 @@ import http from 'http';
 
 import faunaDB from './faunaDB';
 import RoomManager from './RoomManager';
-import { WSMessage, Item, UpdateData } from '../common/interfaces';
+import { WSMessage, Item, UpdateData, LockData } from '../common/interfaces';
 import { NewId } from '../common/functions';
 
 class WebSocketManager {
@@ -84,7 +84,7 @@ class WebSocketManager {
                                 break;
 
                             case 'lock':
-                                const lockData = parsedMsg.content;
+                                const lockData = parsedMsg.content as LockData;
                                 const sucessfullIds = this.roomManager.toggleItemsLock(roomId, userId, lockData);
                                 if (sucessfullIds.length) {
                                     const content = { lockState: lockData.lockState, itemIds: sucessfullIds };
