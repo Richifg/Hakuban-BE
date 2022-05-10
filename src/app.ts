@@ -3,7 +3,7 @@ dotenv.config();
 
 import express from 'express';
 import http from 'http';
-import WebSocket, { AddressInfo } from 'ws';
+import { AddressInfo } from 'ws';
 
 import db from './services/faunaDB';
 import RoomManager from './services/RoomManager';
@@ -25,7 +25,7 @@ app.use(function (req, res, next) {
 
 // initialize services
 const server = http.createServer(app);
-const roomManager = new RoomManager<WebSocket>();
+const roomManager = new RoomManager();
 const webSocketManager = new WebSocketManager(server, roomManager, db);
 
 webSocketManager.start();

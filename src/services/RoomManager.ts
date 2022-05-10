@@ -1,13 +1,13 @@
-import { LockData } from 'common/interfaces';
+import { LockData, User } from 'common/interfaces';
 
-interface Room<User> {
+interface Room {
     users: User[];
     password?: string;
     lockedItems: { [key: string]: string };
 }
 
-class RoomManager<User> {
-    private activeRooms: { [key: string]: Room<User> };
+class RoomManager {
+    private activeRooms: { [key: string]: Room };
 
     constructor() {
         this.activeRooms = {};
@@ -43,10 +43,20 @@ class RoomManager<User> {
         return false;
     }
 
-    removeUser(roomId: string, userToRemove: User): void {
-        if (this.activeRooms[roomId]) {
-            this.activeRooms[roomId].users = this.activeRooms[roomId].users.filter((user) => user !== userToRemove);
+    removeUser(roomId: string, userId: string): string[] {
+        const unlockedIds: string[] = [];
+        const room = this.activeRooms[roomId];
+        if (room) {
+            room.users = room.users.filter(({ id }) => userId !== id);
+            // keep track of unlocked items so message can be broadcasted
+            const newLockItems: typeof room.lockedItems = {};
+            Object.entries(room.lockedItems).forEach(([itemId, lockUserId]) => {
+                if (lockUserId === userId) unlockedIds.push(itemId);
+                else newLockItems[itemId] = lockUserId;
+            });
+            room.lockedItems = newLockItems;
         }
+        return unlockedIds;
     }
 
     canEditItem(roomId: string, userId: string, itemId: string): boolean {

@@ -3,51 +3,53 @@ import http from 'http';
 
 import faunaDB from './faunaDB';
 import RoomManager from './RoomManager';
-import { WSMessage, Item, UpdateData, LockData } from '../common/interfaces';
-import { NewId } from '../common/functions';
+import { WSMessage, Item, UpdateData, LockData, User } from '../common/interfaces';
+import { getNewUserId } from '../common/functions';
 
 class WebSocketManager {
     private wss: WebSocket.Server;
-    private roomManager: RoomManager<WebSocket>;
+    private roomManager: RoomManager;
     private db: typeof faunaDB;
 
-    constructor(httpServer: http.Server, roomManager: RoomManager<WebSocket>, db: typeof faunaDB) {
+    constructor(httpServer: http.Server, roomManager: RoomManager, db: typeof faunaDB) {
         this.wss = new WebSocket.Server({ server: httpServer });
         this.roomManager = roomManager;
         this.db = db;
     }
 
     start(): void {
-        this.wss.on('connection', async (ws, req) => {
+        this.wss.on('connection', async (wsc, req) => {
             const urlParams = new URLSearchParams(req.url?.split('/')[1]);
             const roomId = urlParams.get('roomId');
 
             if (!roomId) {
                 const message: WSMessage = { type: 'error', content: 'Room not specified', userId: 'admin' };
-                ws.send(JSON.stringify(message));
-                ws.terminate();
+                wsc.send(JSON.stringify(message));
+                wsc.terminate();
             } else if (!(await this.db.doesRoomExist(roomId))) {
                 const message: WSMessage = { type: 'error', content: `Room ${roomId} does not exist`, userId: 'admin' };
-                ws.send(JSON.stringify(message));
-                ws.terminate();
+                wsc.send(JSON.stringify(message));
+                wsc.terminate();
             } else {
-                this.roomManager.addUser(roomId, ws);
+                // create new user, send its id and all the items
+                const newUser: User = { client: wsc, id: getNewUserId() };
+                this.roomManager.addUser(roomId, newUser);
                 try {
-                    const userId = NewId();
-                    const idMessage: WSMessage = { type: 'id', content: userId, userId: 'admin' };
-                    ws.send(JSON.stringify(idMessage));
+                    const idMessage: WSMessage = { type: 'id', content: newUser.id, userId: 'admin' };
+                    wsc.send(JSON.stringify(idMessage));
                     const roomItems = await this.db.getAllItems(roomId);
                     const message: WSMessage = { type: 'add', content: roomItems, userId: 'admin' };
-                    ws.send(JSON.stringify(message));
+                    wsc.send(JSON.stringify(message));
                 } catch (e) {
-                    console.log('Error reading items', e);
+                    console.log('Error initializing user', e);
                 }
 
-                ws.on('message', async (msg: string) => {
+                wsc.on('message', async (msg: string) => {
                     const parsedMsg = JSON.parse(msg) as WSMessage;
-                    let stringifiedMessage = '';
+                    let message: WSMessage | undefined;
                     const { type, userId } = parsedMsg;
                     // attemp to modify database based on new message
+                    console.log(type);
                     try {
                         switch (type) {
                             case 'add':
@@ -55,8 +57,7 @@ class WebSocketManager {
                                 const addedItems = await Promise.all(
                                     items.map((item) => this.db.addItem(roomId, item)),
                                 );
-                                const addMessage: WSMessage = { type: 'add', content: addedItems, userId };
-                                stringifiedMessage = JSON.stringify(addMessage);
+                                message = { type: 'add', content: addedItems, userId };
                                 break;
 
                             case 'update':
@@ -66,8 +67,7 @@ class WebSocketManager {
                                 );
                                 if (validUpdates.length) {
                                     await Promise.all(validUpdates.map((data) => this.db.updateItem(roomId, data)));
-                                    const updateMessage: WSMessage = { type: 'update', content: updateData, userId };
-                                    stringifiedMessage = JSON.stringify(updateMessage);
+                                    message = { type: 'update', content: updateData, userId };
                                 }
                                 break;
 
@@ -78,8 +78,7 @@ class WebSocketManager {
                                 );
                                 if (validIds) {
                                     await Promise.all(validIds.map((id) => this.db.removeItem(roomId, id)));
-                                    const message: WSMessage = { type: 'delete', content: idsToDelete, userId };
-                                    stringifiedMessage = JSON.stringify(message);
+                                    message = { type: 'delete', content: idsToDelete, userId };
                                 }
                                 break;
 
@@ -88,37 +87,47 @@ class WebSocketManager {
                                 const sucessfullIds = this.roomManager.toggleItemsLock(roomId, userId, lockData);
                                 if (sucessfullIds.length) {
                                     const content = { lockState: lockData.lockState, itemIds: sucessfullIds };
-                                    const message: WSMessage = { type: 'lock', content, userId };
-                                    stringifiedMessage = JSON.stringify(message);
+                                    message = { type: 'lock', content, userId };
                                 }
                                 break;
                         }
                     } catch (e) {
-                        const message: WSMessage = {
+                        message = {
                             type: 'error',
                             content: 'Database write error: ' + e,
                             userId: 'admin',
                         };
-                        stringifiedMessage = JSON.stringify(message);
                     }
-
-                    // attempt to broacast message to other users in the room
-                    try {
-                        this.roomManager.getRoomUsers(roomId).forEach((client) => {
-                            if (client.readyState === 1 && stringifiedMessage) {
-                                client.send(stringifiedMessage);
-                            }
-                        });
-                    } catch (e) {
-                        console.log('Error broadcasting message' + e);
+                    if (message) {
+                        this.broadcastMessage(roomId, message);
                     }
                 });
 
-                ws.on('close', () => {
-                    this.roomManager.removeUser(roomId, ws);
+                wsc.on('close', () => {
+                    // reomove user from room and unlock its items
+                    const itemIds = this.roomManager.removeUser(roomId, newUser.id);
+                    itemIds.length &&
+                        this.broadcastMessage(roomId, {
+                            type: 'lock',
+                            content: { lockState: false, itemIds },
+                            userId: 'admin',
+                        });
                 });
             }
         });
+    }
+    broadcastMessage(roomId: string, message: WSMessage): void {
+        // attempt to broacast message to other users in the room
+        const stringifiedMessage = JSON.stringify(message);
+        try {
+            this.roomManager.getRoomUsers(roomId).forEach(({ client }) => {
+                if (client.readyState === 1 && stringifiedMessage) {
+                    client.send(stringifiedMessage);
+                }
+            });
+        } catch (e) {
+            console.log('Error broadcasting message' + e);
+        }
     }
 }
 

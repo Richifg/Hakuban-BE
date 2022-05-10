@@ -1,3 +1,10 @@
+import type WebSocket from 'ws';
+
+export interface User {
+    id: string;
+    client: WebSocket;
+}
+
 export interface Item {
     id?: string;
     creationDate?: Date;
