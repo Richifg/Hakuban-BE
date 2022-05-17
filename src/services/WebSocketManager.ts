@@ -3,7 +3,7 @@ import http from 'http';
 
 import faunaDB from './faunaDB';
 import RoomManager from './RoomManager';
-import { WSMessage, Item, UpdateData, LockData, User } from '../common/interfaces';
+import { WSMessage, Item, UpdateData, LockData, UserData, User } from '../common/interfaces';
 import { getNewUserId } from '../common/functions';
 
 class WebSocketManager {
