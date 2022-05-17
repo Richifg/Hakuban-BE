@@ -3,7 +3,7 @@ import http from 'http';
 
 import faunaDB from './faunaDB';
 import RoomManager from './RoomManager';
-import { WSMessage, Item, UpdateData, LockData, User } from '../common/interfaces';
+import { WSMessage, Item, UpdateData, LockData, UserData, User } from '../common/interfaces';
 import { getNewUserId } from '../common/functions';
 
 class WebSocketManager {
@@ -31,25 +31,51 @@ class WebSocketManager {
                 wsc.send(JSON.stringify(message));
                 wsc.terminate();
             } else {
-                // create new user, send its id and all the items
-                const newUser: User = { client: wsc, id: getNewUserId() };
-                this.roomManager.addUser(roomId, newUser);
+                // create new user
+                const thisUser: User = { client: wsc, id: getNewUserId() };
                 try {
-                    const idMessage: WSMessage = { type: 'id', content: newUser.id, userId: 'admin' };
+                    // broadcast join message (without user client)
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    const { client, ...cleanUser } = thisUser;
+                    const joinMessage: WSMessage = {
+                        type: 'user',
+                        content: [{ userState: 'join', user: cleanUser as User }],
+                        userId: thisUser.id,
+                    };
+                    this.broadcastMessage(roomId, joinMessage);
+
+                    // tell new user its id
+                    const idMessage: WSMessage = { type: 'id', content: thisUser.id, userId: 'admin' };
                     wsc.send(JSON.stringify(idMessage));
+
+                    // send new user all other room users
+                    const otherUsers = this.roomManager.getRoomUsers(roomId);
+                    const othersMessage: WSMessage = {
+                        type: 'user',
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                        content: otherUsers.map(({ client, ...cleanUser }) => ({
+                            userState: 'join',
+                            user: cleanUser as User,
+                        })),
+                        userId: 'admin',
+                    };
+                    wsc.send(JSON.stringify(othersMessage));
+
+                    // send new user all of the room items
                     const roomItems = await this.db.getAllItems(roomId);
                     const message: WSMessage = { type: 'add', content: roomItems, userId: 'admin' };
                     wsc.send(JSON.stringify(message));
                 } catch (e) {
                     console.log('Error initializing user', e);
                 }
+                // finally add user to room
+                this.roomManager.addUser(roomId, thisUser);
 
                 wsc.on('message', async (msg: string) => {
                     const parsedMsg = JSON.parse(msg) as WSMessage;
                     let message: WSMessage | undefined;
                     const { type, userId } = parsedMsg;
                     // attemp to modify database based on new message
-                    console.log(type);
                     try {
                         switch (type) {
                             case 'add':
@@ -62,12 +88,13 @@ class WebSocketManager {
 
                             case 'update':
                                 const updateData = parsedMsg.content as UpdateData[];
+                                // update data is valid if item is locked by user
                                 const validUpdates = updateData.filter((data) =>
                                     this.roomManager.canEditItem(roomId, userId, data.id),
                                 );
                                 if (validUpdates.length) {
                                     await Promise.all(validUpdates.map((data) => this.db.updateItem(roomId, data)));
-                                    message = { type: 'update', content: updateData, userId };
+                                    message = { type: 'update', content: validUpdates, userId };
                                 }
                                 break;
 
@@ -90,6 +117,17 @@ class WebSocketManager {
                                     message = { type: 'lock', content, userId };
                                 }
                                 break;
+
+                            case 'user':
+                                const userData = parsedMsg.content as UserData[];
+                                // FE can only send 'update' user messages of a single item
+                                if (userData[0].userState === 'update') {
+                                    const { user } = userData[0];
+                                    if (this.roomManager.updateUser(roomId, user)) {
+                                        message = { type: 'user', content: userData, userId };
+                                    }
+                                }
+                                break;
                         }
                     } catch (e) {
                         message = {
@@ -104,14 +142,21 @@ class WebSocketManager {
                 });
 
                 wsc.on('close', () => {
-                    // reomove user from room and unlock its items
-                    const itemIds = this.roomManager.removeUser(roomId, newUser.id);
+                    console.log('removing a user');
+                    // remove user from room and unlock its items
+                    const itemIds = this.roomManager.removeUser(roomId, thisUser.id);
                     itemIds.length &&
                         this.broadcastMessage(roomId, {
                             type: 'lock',
                             content: { lockState: false, itemIds },
                             userId: 'admin',
                         });
+                    // also broadcast user left message
+                    this.broadcastMessage(roomId, {
+                        type: 'user',
+                        content: [{ userState: 'leave', id: thisUser.id }],
+                        userId: 'admin',
+                    });
                 });
             }
         });
@@ -120,7 +165,9 @@ class WebSocketManager {
         // attempt to broacast message to other users in the room
         const stringifiedMessage = JSON.stringify(message);
         try {
-            this.roomManager.getRoomUsers(roomId).forEach(({ client }) => {
+            const roomUsers = this.roomManager.getRoomUsers(roomId);
+            console.log(message.type, roomUsers.length);
+            roomUsers.forEach(({ client }) => {
                 if (client.readyState === 1 && stringifiedMessage) {
                     client.send(stringifiedMessage);
                 }
