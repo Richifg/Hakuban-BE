@@ -3,7 +3,7 @@ import http from 'http';
 
 import faunaDB from './faunaDB';
 import RoomManager from './RoomManager';
-import { WSMessage, Item, UpdateData, LockData, UserData, User } from '../common/interfaces';
+import { WSMessage, Item, UpdateData, LockData, User, UserData } from '../common/interfaces';
 import { getNewUserId } from '../common/functions';
 
 class WebSocketManager {
@@ -31,8 +31,9 @@ class WebSocketManager {
                 wsc.send(JSON.stringify(message));
                 wsc.terminate();
             } else {
-                // create new user
+                // add new user to room
                 const thisUser: User = { client: wsc, id: getNewUserId() };
+                this.roomManager.addUser(roomId, thisUser);
                 try {
                     // broadcast join message (without user client)
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -43,10 +44,6 @@ class WebSocketManager {
                         userId: thisUser.id,
                     };
                     this.broadcastMessage(roomId, joinMessage);
-
-                    // tell new user its id
-                    const idMessage: WSMessage = { type: 'id', content: thisUser.id, userId: 'admin' };
-                    wsc.send(JSON.stringify(idMessage));
 
                     // send new user all other room users
                     const otherUsers = this.roomManager.getRoomUsers(roomId);
@@ -65,11 +62,14 @@ class WebSocketManager {
                     const roomItems = await this.db.getAllItems(roomId);
                     const message: WSMessage = { type: 'add', content: roomItems, userId: 'admin' };
                     wsc.send(JSON.stringify(message));
+
+                    // finally tell new user its own id to finish initialization
+                    const idMessage: WSMessage = { type: 'id', content: thisUser.id, userId: 'admin' };
+                    wsc.send(JSON.stringify(idMessage));
                 } catch (e) {
                     console.log('Error initializing user', e);
+                    this.roomManager.removeUser(roomId, thisUser.id);
                 }
-                // finally add user to room
-                this.roomManager.addUser(roomId, thisUser);
 
                 wsc.on('message', async (msg: string) => {
                     const parsedMsg = JSON.parse(msg) as WSMessage;
@@ -119,7 +119,7 @@ class WebSocketManager {
                                 break;
 
                             case 'user':
-                                const userData = parsedMsg.content;
+                                const userData = parsedMsg.content as UserData;
                                 // FE can only send 'update' user messages of a single item
                                 if (userData.userAction === 'update') {
                                     if (this.roomManager.updateUser(roomId, userData.users[0])) {

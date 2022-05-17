@@ -22,7 +22,9 @@ class RoomManager {
     }
 
     createRoom(roomId: string, password?: string): void {
-        this.activeRooms[roomId] = { users: [], password, lockedItems: {} };
+        if (!this.activeRooms[roomId]) {
+            this.activeRooms[roomId] = { users: [], password, lockedItems: {} };
+        }
     }
 
     deleteRoom(roomId: string, callBack?: (user: User) => void): void {
