@@ -3,6 +3,7 @@ import type WebSocket from 'ws';
 export interface User {
     id: string;
     client: WebSocket;
+    userName?: string; // for RoomManager testing puporses
 }
 
 export interface Item {
@@ -14,6 +15,8 @@ export interface Item {
 export type UpdateData = { id: string; [key: string]: any };
 
 export type LockData = { itemIds: string[]; lockState: boolean };
+
+export type UserData = { userAction: 'join' | 'update'; users: User[] } | { userAction: 'leave'; id: string };
 
 interface WSBaseMessage {
     userId: 'admin' | string;
@@ -50,6 +53,11 @@ interface WSLockMessage extends WSBaseMessage {
     content: LockData;
 }
 
+interface WSUserMessage extends WSBaseMessage {
+    type: 'user';
+    content: UserData;
+}
+
 interface WSErrorMessage extends WSBaseMessage {
     type: 'error';
     content: string;
@@ -64,4 +72,5 @@ export type WSMessage =
     | WSIdMessage
     | WSChatMessage
     | WSLockMessage
+    | WSUserMessage
     | WSErrorMessage;

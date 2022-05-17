@@ -43,6 +43,20 @@ class RoomManager {
         return false;
     }
 
+    updateUser(roomId: string, user: User): boolean {
+        if (this.activeRooms[roomId]) {
+            const { users } = this.activeRooms[roomId];
+            const index = users.findIndex(({ id }) => id === user.id);
+            if (index !== -1) {
+                const oldUser = users[index];
+                // always merged oldData because nevers FE never sends user.client
+                users.splice(index, 1, { ...oldUser, ...user });
+                return true;
+            }
+        }
+        return false;
+    }
+
     removeUser(roomId: string, userId: string): string[] {
         const unlockedIds: string[] = [];
         const room = this.activeRooms[roomId];

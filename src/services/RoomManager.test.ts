@@ -1,13 +1,11 @@
 import RoomManager from './RoomManager';
+import { User } from '../common/interfaces';
 
-interface MockUser {
-    a: 1;
-}
-const createMockUser = () => ({ a: 1 } as MockUser);
-let roomManager: RoomManager<MockUser>;
+const createMockUser = (id?: string, userName?: string) => ({ id: id || '1', userName: userName || 'joe' } as User);
 
+let roomManager: RoomManager;
 beforeEach(() => {
-    roomManager = new RoomManager<MockUser>();
+    roomManager = new RoomManager();
 });
 
 test('can create multiple rooms', () => {
@@ -30,8 +28,8 @@ test('can add users to a room', () => {
     expect(roomManager.getRoomUsers('TEST').length).toBe(0);
     expect(roomManager.getRoomUsers('OTHER').length).toBe(0);
 
-    const user1 = createMockUser();
-    const user2 = createMockUser();
+    const user1 = createMockUser('user1');
+    const user2 = createMockUser('user2');
     roomManager.addUser('TEST', user1);
     roomManager.addUser('TEST', user2);
 
@@ -46,6 +44,26 @@ test('can add users to a room', () => {
     const otherUsers = roomManager.getRoomUsers('OTHER');
     expect(otherUsers.length).toBe(1);
     expect(otherUsers.includes(userOther)).toBe(true);
+});
+
+test('can update users on room', () => {
+    const user1 = createMockUser('user1', 'old');
+    const user2 = createMockUser('user2');
+    roomManager.addUser('TEST', user1);
+    roomManager.addUser('TEST', user2);
+
+    const updatedUser = { ...user1, userName: 'new' };
+    roomManager.updateUser('TEST', updatedUser);
+
+    const users = roomManager.getRoomUsers('TEST');
+    expect(users.length).toBe(2);
+    expect(users.includes(user2)).toBe(true);
+    // no object should be included because internally old and new data are merged
+    expect(users.includes(updatedUser)).toBe(true);
+    expect(users.includes(user1)).toBe(false);
+    // but properties should still have been updated
+    const foundUser = users.find(({ id }) => id === updatedUser.id);
+    expect(foundUser.userName).toBe('new');
 });
 
 test('room can require a password to join', () => {
@@ -68,19 +86,19 @@ test('when adding users, room is created if it doesnt exist', () => {
 });
 
 test('can remove users from a room', () => {
-    const user1 = createMockUser();
+    const user1 = createMockUser('user1');
     roomManager.addUser('TEST', user1);
-    const user2 = createMockUser();
+    const user2 = createMockUser('user2');
     roomManager.addUser('TEST', user2);
 
     const userOther = createMockUser();
     roomManager.addUser('OTHER', userOther);
 
     expect(roomManager.getRoomUsers('TEST').length).toBe(2);
-    roomManager.removeUser('TEST', user1);
+    roomManager.removeUser('TEST', user1.id);
     expect(roomManager.getRoomUsers('TEST').length).toBe(1);
     expect(roomManager.getRoomUsers('TEST').includes(user1)).toBe(false);
-    roomManager.removeUser('TEST', user2);
+    roomManager.removeUser('TEST', user2.id);
     expect(roomManager.getRoomUsers('TEST').length).toBe(0);
 
     expect(roomManager.getRoomUsers('OTHER').length).toBe(1);
