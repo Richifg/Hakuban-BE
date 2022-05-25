@@ -1,7 +1,7 @@
 {
   "name": "collabtool-be",
   "version": "0.0.1",
-  "description": "The backend for an online collaboration tool",
+  "description": "The backend service for an online collaboration tool",
   "main": "dist/app.js",
   "dependencies": {
     "dotenv": "^10.0.0",
@@ -37,10 +37,11 @@
   },
   "keywords": [
     "collaboration",
-    "online"
+    "online",
+    "whiteboard"
   ],
   "author": "Ricardo Fernandez",
-  "license": "MIT",
+  "license": "gpl-3.0",
   "bugs": {
     "url": "https://github.com/Richifg/CollabTool-BE/issues"
   },
