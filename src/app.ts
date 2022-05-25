@@ -16,7 +16,7 @@ app.use(function (_, res, next) {
     // Website you wish to allow to connect
     res.setHeader('Access-Control-Allow-Origin', process.env.ALLOW_ORIGIN || '');
     // Request methods you wish to allow
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     // Request headers you wish to allow
     res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
     next();
@@ -29,8 +29,8 @@ const webSocketManager = new WebSocketManager(server, roomManager, db);
 webSocketManager.start();
 
 // routes
-app.get('/', (_, res) => {
-    res.send('Hello World!');
+app.get('/wakeup', (_, res) => {
+    res.send('OK');
 });
 
 app.post('/room', async (_, res) => {
