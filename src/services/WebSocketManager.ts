@@ -147,7 +147,6 @@ class WebSocketManager {
                 });
 
                 wsc.on('close', () => {
-                    console.log('removing a user');
                     // remove user from room and unlock its items
                     const itemIds = this.roomManager.removeUser(roomId, thisUser.id);
                     itemIds.length &&
@@ -171,7 +170,6 @@ class WebSocketManager {
         const stringifiedMessage = JSON.stringify(message);
         try {
             const roomUsers = this.roomManager.getRoomUsers(roomId);
-            console.log(message.type, roomUsers.length);
             roomUsers.forEach(({ client }) => {
                 if (client.readyState === 1 && stringifiedMessage) {
                     client.send(stringifiedMessage);
