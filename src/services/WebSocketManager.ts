@@ -19,10 +19,16 @@ class WebSocketManager {
 
     start(): void {
         this.wss.on('connection', async (wsc, req) => {
+            const origin = req.headers.origin;
             const urlParams = new URLSearchParams(req.url?.split('/')[1]);
             const roomId = urlParams.get('roomId');
 
-            if (!roomId) {
+            // first check if connection request is valid
+            if (origin !== process.env.ALLOW_ORIGIN) {
+                const message: WSMessage = { type: 'error', content: 'Unallowed origin', userId: 'admin' };
+                wsc.send(JSON.stringify(message));
+                wsc.terminate();
+            } else if (!roomId) {
                 const message: WSMessage = { type: 'error', content: 'Room not specified', userId: 'admin' };
                 wsc.send(JSON.stringify(message));
                 wsc.terminate();
@@ -141,7 +147,6 @@ class WebSocketManager {
                 });
 
                 wsc.on('close', () => {
-                    console.log('removing a user');
                     // remove user from room and unlock its items
                     const itemIds = this.roomManager.removeUser(roomId, thisUser.id);
                     itemIds.length &&
@@ -165,7 +170,6 @@ class WebSocketManager {
         const stringifiedMessage = JSON.stringify(message);
         try {
             const roomUsers = this.roomManager.getRoomUsers(roomId);
-            console.log(message.type, roomUsers.length);
             roomUsers.forEach(({ client }) => {
                 if (client.readyState === 1 && stringifiedMessage) {
                     client.send(stringifiedMessage);
