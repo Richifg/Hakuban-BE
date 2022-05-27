@@ -33,9 +33,14 @@ app.get('/wakeup', (_, res) => {
     res.send('OK');
 });
 
-app.post('/room', async (_, res) => {
-    const roomId = await db.createRoom();
-    res.send(roomId);
+app.post('/room', async (req, res) => {
+    if (req.headers.origin === process.env.ALLOW_ORIGIN) {
+        const roomId = await db.createRoom();
+        res.send(roomId);
+    } else {
+        res.statusCode = 405;
+        res.send();
+    }
 });
 
 server.listen(process.env.PORT, () => {
