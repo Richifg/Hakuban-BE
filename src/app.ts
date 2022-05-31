@@ -9,18 +9,18 @@ import db from './services/faunaDB';
 import RoomManager from './services/RoomManager';
 import WebSocketManager from './services/WebSocketManager';
 
-// express app
 const app = express();
 
+// cors policy
 app.use(function (_, res, next) {
-    // Website you wish to allow to connect
     res.setHeader('Access-Control-Allow-Origin', process.env.ALLOW_ORIGIN || '');
-    // Request methods you wish to allow
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    // Request headers you wish to allow
     res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
     next();
 });
+
+// parser middleware
+app.use(express.text());
 
 // initialize services
 const server = http.createServer(app);
@@ -33,9 +33,16 @@ app.get('/wakeup', (_, res) => {
     res.send('OK');
 });
 
-app.post('/room', async (_, res) => {
-    const roomId = await db.createRoom();
-    res.send(roomId);
+app.post('/room', async (req, res) => {
+    const password = req.body;
+    try {
+        const roomId = await db.createRoom(password);
+        roomManager.createRoom(roomId);
+        res.send(roomId);
+    } catch (e) {
+        res.statusCode = 500;
+        res.send(e);
+    }
 });
 
 server.listen(process.env.PORT, () => {
