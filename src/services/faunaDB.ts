@@ -65,9 +65,16 @@ const db = {
     async doesRoomExist(roomId: string): Promise<boolean> {
         return faunaClient.query(q.Exists(q.Collection(roomId)));
     },
-    async createRoom(): Promise<string> {
+    async isPasswordCorrect(roomId: string, password?: string): Promise<boolean> {
+        const roomPassword = (
+            await faunaClient.query<FaunaDocument<{ password: string }>>(q.Get(q.Ref(q.Collection(roomId), 0)))
+        ).data.password;
+        return roomPassword === password;
+    },
+    async createRoom(password?: string): Promise<string> {
         const roomId = (await faunaClient.query<string>(q.NewId())).substr(-5);
         await faunaClient.query(q.CreateCollection({ name: roomId, history_days: 5, ttl: 2 }));
+        await faunaClient.query(q.Create(q.Ref(q.Collection(roomId), 0), { data: { password } }));
         return roomId;
     },
     async deleteRoom(roomId: string): Promise<void> {
