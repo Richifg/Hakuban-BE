@@ -20,7 +20,7 @@ app.use(function (_, res, next) {
 });
 
 // parser middleware
-app.use(express.text());
+app.use(express.json());
 
 // initialize services
 const server = http.createServer(app);
@@ -34,7 +34,7 @@ app.get('/wakeup', (_, res) => {
 });
 
 app.post('/room', async (req, res) => {
-    const password = req.body;
+    const password = req.body?.password || '';
     try {
         const roomId = await db.createRoom(password);
         roomManager.createRoom(roomId);

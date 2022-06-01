@@ -22,7 +22,7 @@ class WebSocketManager {
         this.wss.on('connection', async (wsc, req) => {
             const urlParams = new URLSearchParams(req.url?.split('/')[1]);
             const roomId = urlParams.get('roomId');
-            const password = urlParams.get('password') || undefined;
+            const password = urlParams.get('password') || '';
             let errorMessage: WSMessage | undefined = undefined;
 
             if (!roomId) {
