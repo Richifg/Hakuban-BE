@@ -2,7 +2,6 @@ import { LockData, User } from 'common/interfaces';
 
 interface Room {
     users: User[];
-    password?: string;
     lockedItems: { [key: string]: string };
 }
 
@@ -21,9 +20,9 @@ class RoomManager {
         return this.activeRooms[roomId].users || [];
     }
 
-    createRoom(roomId: string, password?: string): void {
+    createRoom(roomId: string): void {
         if (!this.activeRooms[roomId]) {
-            this.activeRooms[roomId] = { users: [], password, lockedItems: {} };
+            this.activeRooms[roomId] = { users: [], lockedItems: {} };
         }
     }
 
@@ -32,17 +31,12 @@ class RoomManager {
         delete this.activeRooms[roomId];
     }
 
-    addUser(roomId: string, user: User, password?: string): boolean {
+    addUser(roomId: string, user: User): void {
         // create room first if it doesn't exist
         if (!this.activeRooms[roomId]) {
-            this.createRoom(roomId, password);
+            this.createRoom(roomId);
         }
-        const roomPassword = this.activeRooms[roomId].password;
-        if (!roomPassword || roomPassword === password) {
-            this.activeRooms[roomId].users.push(user);
-            return true;
-        }
-        return false;
+        this.activeRooms[roomId].users.push(user);
     }
 
     updateUser(roomId: string, user: User): boolean {
