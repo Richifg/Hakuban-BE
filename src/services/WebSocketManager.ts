@@ -18,10 +18,13 @@ class WebSocketManager {
     }
 
     start(): void {
+        // handle new connection to WS server
         this.wss.on('connection', async (wsc, req) => {
             const origin = req.headers.origin;
             const urlParams = new URLSearchParams(req.url?.split('/')[1]);
             const roomId = urlParams.get('roomId');
+            const password = urlParams.get('password') || '';
+            let errorMessage: WSMessage | undefined = undefined;
 
             // first check if connection request is valid
             if (origin !== process.env.ALLOW_ORIGIN) {
@@ -32,10 +35,11 @@ class WebSocketManager {
                 const message: WSMessage = { type: 'error', content: 'Room not specified', userId: 'admin' };
                 wsc.send(JSON.stringify(message));
                 wsc.terminate();
+
             } else if (!(await this.db.doesRoomExist(roomId))) {
-                const message: WSMessage = { type: 'error', content: `Room ${roomId} does not exist`, userId: 'admin' };
-                wsc.send(JSON.stringify(message));
-                wsc.terminate();
+                errorMessage = { type: 'error', content: `Room ${roomId} does not exist`, userId: 'admin' };
+            } else if (!(await this.db.isPasswordCorrect(roomId, password))) {
+                errorMessage = { type: 'error', content: 'Incorrect room password', userId: 'admin' };
             } else {
                 // add new user to room
                 const thisUser: User = { client: wsc, id: getNewUserId() };
@@ -77,6 +81,7 @@ class WebSocketManager {
                     this.roomManager.removeUser(roomId, thisUser.id);
                 }
 
+                // handle incoming WSMessages
                 wsc.on('message', async (msg: string) => {
                     const parsedMsg = JSON.parse(msg) as WSMessage;
                     let message: WSMessage | undefined;
@@ -146,6 +151,7 @@ class WebSocketManager {
                     }
                 });
 
+                // handle WS disconnect
                 wsc.on('close', () => {
                     // remove user from room and unlock its items
                     const itemIds = this.roomManager.removeUser(roomId, thisUser.id);
@@ -163,8 +169,14 @@ class WebSocketManager {
                     });
                 });
             }
+
+            if (errorMessage) {
+                wsc.send(JSON.stringify(errorMessage));
+                wsc.terminate();
+            }
         });
     }
+
     broadcastMessage(roomId: string, message: WSMessage): void {
         // attempt to broacast message to other users in the room
         const stringifiedMessage = JSON.stringify(message);
