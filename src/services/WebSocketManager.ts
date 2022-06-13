@@ -20,13 +20,22 @@ class WebSocketManager {
     start(): void {
         // handle new connection to WS server
         this.wss.on('connection', async (wsc, req) => {
+            const origin = req.headers.origin;
             const urlParams = new URLSearchParams(req.url?.split('/')[1]);
             const roomId = urlParams.get('roomId');
             const password = urlParams.get('password') || '';
             let errorMessage: WSMessage | undefined = undefined;
 
-            if (!roomId) {
-                errorMessage = { type: 'error', content: 'Room not specified', userId: 'admin' };
+            // first check if connection request is valid
+            if (origin !== process.env.ALLOW_ORIGIN) {
+                const message: WSMessage = { type: 'error', content: 'Unallowed origin', userId: 'admin' };
+                wsc.send(JSON.stringify(message));
+                wsc.terminate();
+            } else if (!roomId) {
+                const message: WSMessage = { type: 'error', content: 'Room not specified', userId: 'admin' };
+                wsc.send(JSON.stringify(message));
+                wsc.terminate();
+
             } else if (!(await this.db.doesRoomExist(roomId))) {
                 errorMessage = { type: 'error', content: `Room ${roomId} does not exist`, userId: 'admin' };
             } else if (!(await this.db.isPasswordCorrect(roomId, password))) {
