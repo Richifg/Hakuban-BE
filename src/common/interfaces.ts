@@ -16,10 +16,15 @@ export type UpdateData = { id: string; [key: string]: any };
 
 export type LockData = { itemIds: string[]; lockState: boolean };
 
-export type UserData = { userAction: 'join' | 'update'; users: User[] } | { userAction: 'leave'; id: string };
+export type UserData = { userAction: 'join' | 'update'; user: User } | { userAction: 'leave'; id: string };
 
 interface WSBaseMessage {
     userId: 'admin' | string;
+}
+
+interface WSInitMessage extends WSBaseMessage {
+    type: 'init';
+    content: { items: Item[]; users: User[]; ownId: string };
 }
 
 interface WSAddMessage extends WSBaseMessage {
@@ -35,12 +40,6 @@ interface WSUpdateMessage extends WSBaseMessage {
 interface WSDeleteMessage extends WSBaseMessage {
     type: 'delete';
     content: string[];
-}
-
-interface WSIdMessage extends WSBaseMessage {
-    type: 'id';
-    content: string;
-    userId: 'admin';
 }
 
 interface WSChatMessage extends WSBaseMessage {
@@ -66,10 +65,10 @@ interface WSErrorMessage extends WSBaseMessage {
 
 // Messages sent via webSocket
 export type WSMessage =
+    | WSInitMessage
     | WSAddMessage
     | WSUpdateMessage
     | WSDeleteMessage
-    | WSIdMessage
     | WSChatMessage
     | WSLockMessage
     | WSUserMessage
