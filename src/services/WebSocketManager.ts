@@ -35,7 +35,6 @@ class WebSocketManager {
                 const message: WSMessage = { type: 'error', content: 'Room not specified', userId: 'admin' };
                 wsc.send(JSON.stringify(message));
                 wsc.terminate();
-
             } else if (!(await this.db.doesRoomExist(roomId))) {
                 errorMessage = { type: 'error', content: `Room ${roomId} does not exist`, userId: 'admin' };
             } else if (!(await this.db.isPasswordCorrect(roomId, password))) {
@@ -50,32 +49,24 @@ class WebSocketManager {
                     const { client, ...cleanUser } = thisUser;
                     const joinMessage: WSMessage = {
                         type: 'user',
-                        content: { userAction: 'join', users: [cleanUser] as User[] },
+                        content: { userAction: 'join', user: cleanUser as User },
                         userId: thisUser.id,
                     };
                     this.broadcastMessage(roomId, joinMessage);
 
-                    // send new user all other room users
+                    // send new user all init data
                     const otherUsers = this.roomManager.getRoomUsers(roomId);
-                    const othersMessage: WSMessage = {
-                        type: 'user',
-                        content: {
-                            userAction: 'join',
-                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                            users: otherUsers.map(({ client, ...cleanUser }) => cleanUser as User),
-                        },
-                        userId: 'admin',
-                    };
-                    wsc.send(JSON.stringify(othersMessage));
-
-                    // send new user all of the room items
                     const roomItems = await this.db.getAllItems(roomId);
-                    const message: WSMessage = { type: 'add', content: roomItems, userId: 'admin' };
-                    wsc.send(JSON.stringify(message));
-
-                    // finally tell new user its own id to finish initialization
-                    const idMessage: WSMessage = { type: 'id', content: thisUser.id, userId: 'admin' };
-                    wsc.send(JSON.stringify(idMessage));
+                    const initMessage: WSMessage = {
+                        type: 'init',
+                        userId: 'admin',
+                        content: {
+                            users: otherUsers,
+                            ownId: thisUser.id,
+                            items: roomItems,
+                        },
+                    };
+                    wsc.send(JSON.stringify(initMessage));
                 } catch (e) {
                     console.log('Error initializing user', e);
                     this.roomManager.removeUser(roomId, thisUser.id);
@@ -129,11 +120,18 @@ class WebSocketManager {
                                 }
                                 break;
 
+                            case 'chat':
+                                // let fauna generate id
+                                const chat = parsedMsg.content as Item;
+                                const content = await this.db.addItem(roomId, chat);
+                                message = { type: 'chat', content, userId };
+                                break;
+
                             case 'user':
                                 const userData = parsedMsg.content as UserData;
                                 // FE can only send 'update' user messages of a single item
                                 if (userData.userAction === 'update') {
-                                    if (this.roomManager.updateUser(roomId, userData.users[0])) {
+                                    if (this.roomManager.updateUser(roomId, userData.user)) {
                                         message = { type: 'user', content: userData, userId };
                                     }
                                 }

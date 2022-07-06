@@ -66,10 +66,12 @@ const db = {
         return faunaClient.query(q.Exists(q.Collection(roomId)));
     },
     async isPasswordCorrect(roomId: string, password: string): Promise<boolean> {
-        const roomPassword = (
-            await faunaClient.query<FaunaDocument<{ password?: string }>>(q.Get(q.Ref(q.Collection(roomId), 0)))
-        ).data?.password;
-        return roomPassword === password;
+        if (await this.itemExists(roomId, '0')) {
+            const roomPassword = (
+                await faunaClient.query<FaunaDocument<{ password?: string }>>(q.Get(q.Ref(q.Collection(roomId), 0)))
+            ).data?.password;
+            return roomPassword === password;
+        } else return false;
     },
     async createRoom(password?: string): Promise<string> {
         const roomId = (await faunaClient.query<string>(q.NewId())).substr(-5);
