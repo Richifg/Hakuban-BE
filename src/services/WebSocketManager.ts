@@ -18,18 +18,27 @@ class WebSocketManager {
     }
 
     start(): void {
+        // handle new connection to WS server
         this.wss.on('connection', async (wsc, req) => {
+            const origin = req.headers.origin;
             const urlParams = new URLSearchParams(req.url?.split('/')[1]);
             const roomId = urlParams.get('roomId');
+            const password = urlParams.get('password') || '';
+            let errorMessage: WSMessage | undefined = undefined;
 
-            if (!roomId) {
+            // first check if connection request is valid
+            if (origin !== process.env.ALLOW_ORIGIN) {
+                const message: WSMessage = { type: 'error', content: 'Unallowed origin', userId: 'admin' };
+                wsc.send(JSON.stringify(message));
+                wsc.terminate();
+            } else if (!roomId) {
                 const message: WSMessage = { type: 'error', content: 'Room not specified', userId: 'admin' };
                 wsc.send(JSON.stringify(message));
                 wsc.terminate();
             } else if (!(await this.db.doesRoomExist(roomId))) {
-                const message: WSMessage = { type: 'error', content: `Room ${roomId} does not exist`, userId: 'admin' };
-                wsc.send(JSON.stringify(message));
-                wsc.terminate();
+                errorMessage = { type: 'error', content: `Room ${roomId} does not exist`, userId: 'admin' };
+            } else if (!(await this.db.isPasswordCorrect(roomId, password))) {
+                errorMessage = { type: 'error', content: 'Incorrect room password', userId: 'admin' };
             } else {
                 // add new user to room
                 const thisUser: User = { client: wsc, id: getNewUserId() };
@@ -40,37 +49,30 @@ class WebSocketManager {
                     const { client, ...cleanUser } = thisUser;
                     const joinMessage: WSMessage = {
                         type: 'user',
-                        content: { userAction: 'join', users: [cleanUser] as User[] },
+                        content: { userAction: 'join', user: cleanUser as User },
                         userId: thisUser.id,
                     };
                     this.broadcastMessage(roomId, joinMessage);
 
-                    // send new user all other room users
+                    // send new user all init data
                     const otherUsers = this.roomManager.getRoomUsers(roomId);
-                    const othersMessage: WSMessage = {
-                        type: 'user',
-                        content: {
-                            userAction: 'join',
-                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                            users: otherUsers.map(({ client, ...cleanUser }) => cleanUser as User),
-                        },
-                        userId: 'admin',
-                    };
-                    wsc.send(JSON.stringify(othersMessage));
-
-                    // send new user all of the room items
                     const roomItems = await this.db.getAllItems(roomId);
-                    const message: WSMessage = { type: 'add', content: roomItems, userId: 'admin' };
-                    wsc.send(JSON.stringify(message));
-
-                    // finally tell new user its own id to finish initialization
-                    const idMessage: WSMessage = { type: 'id', content: thisUser.id, userId: 'admin' };
-                    wsc.send(JSON.stringify(idMessage));
+                    const initMessage: WSMessage = {
+                        type: 'init',
+                        userId: 'admin',
+                        content: {
+                            users: otherUsers,
+                            ownId: thisUser.id,
+                            items: roomItems,
+                        },
+                    };
+                    wsc.send(JSON.stringify(initMessage));
                 } catch (e) {
                     console.log('Error initializing user', e);
                     this.roomManager.removeUser(roomId, thisUser.id);
                 }
 
+                // handle incoming WSMessages
                 wsc.on('message', async (msg: string) => {
                     const parsedMsg = JSON.parse(msg) as WSMessage;
                     let message: WSMessage | undefined;
@@ -118,11 +120,18 @@ class WebSocketManager {
                                 }
                                 break;
 
+                            case 'chat':
+                                // let fauna generate id
+                                const chat = parsedMsg.content as Item;
+                                const content = await this.db.addItem(roomId, chat);
+                                message = { type: 'chat', content, userId };
+                                break;
+
                             case 'user':
                                 const userData = parsedMsg.content as UserData;
                                 // FE can only send 'update' user messages of a single item
                                 if (userData.userAction === 'update') {
-                                    if (this.roomManager.updateUser(roomId, userData.users[0])) {
+                                    if (this.roomManager.updateUser(roomId, userData.user)) {
                                         message = { type: 'user', content: userData, userId };
                                     }
                                 }
@@ -140,8 +149,8 @@ class WebSocketManager {
                     }
                 });
 
+                // handle WS disconnect
                 wsc.on('close', () => {
-                    console.log('removing a user');
                     // remove user from room and unlock its items
                     const itemIds = this.roomManager.removeUser(roomId, thisUser.id);
                     itemIds.length &&
@@ -158,14 +167,19 @@ class WebSocketManager {
                     });
                 });
             }
+
+            if (errorMessage) {
+                wsc.send(JSON.stringify(errorMessage));
+                wsc.terminate();
+            }
         });
     }
+
     broadcastMessage(roomId: string, message: WSMessage): void {
         // attempt to broacast message to other users in the room
         const stringifiedMessage = JSON.stringify(message);
         try {
             const roomUsers = this.roomManager.getRoomUsers(roomId);
-            console.log(message.type, roomUsers.length);
             roomUsers.forEach(({ client }) => {
                 if (client.readyState === 1 && stringifiedMessage) {
                     client.send(stringifiedMessage);
