@@ -75,7 +75,7 @@ const db = {
     },
     async createRoom(password?: string): Promise<string> {
         const roomId = (await faunaClient.query<string>(q.NewId())).substr(-5);
-        await faunaClient.query(q.CreateCollection({ name: roomId, history_days: 5, ttl: 2 }));
+        await faunaClient.query(q.CreateCollection({ name: roomId, history_days: 2, ttl_days: 1 }));
         await faunaClient.query(q.Create(q.Ref(q.Collection(roomId), 0), { data: { password } }));
         return roomId;
     },
