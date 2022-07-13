@@ -81,7 +81,7 @@ class WebSocketManager {
                     try {
                         switch (type) {
                             case 'add':
-                                const items = parsedMsg.content as Item[]; // TODO: why is tsc forcing me to do this???
+                                const items = parsedMsg.content as Item[]; // TODO: why is tsc forcing me to type this???
                                 const addedItems = await Promise.all(
                                     items.map((item) => this.db.addItem(roomId, item)),
                                 );

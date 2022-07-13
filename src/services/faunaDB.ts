@@ -50,7 +50,13 @@ const db = {
     },
     async updateItem(roomId: string, data: UpdateData): Promise<UpdateData> {
         const { id, ...rest } = data;
-        const itemExists = await this.itemExists(roomId, id);
+        let itemExists = await this.itemExists(roomId, id);
+        if (!itemExists) {
+            // sometimes DB write takes longer, so wait a bit before update
+            itemExists = await new Promise<void>((r) => setTimeout(() => r(), 150)).then(() =>
+                this.itemExists(roomId, id),
+            );
+        }
         if (itemExists) {
             const oldItem = await faunaClient.query<FaunaDocument<Item>>(q.Get(q.Ref(q.Collection(roomId), id)));
             await faunaClient.query<FaunaDocument<Item>>(
@@ -60,7 +66,9 @@ const db = {
         } else throw `Item id:${id} does not exist`;
     },
     async removeItem(roomId: string, id: string): Promise<void> {
-        return faunaClient.query(q.Delete(q.Ref(q.Collection(roomId), id)));
+        const itemExists = await this.itemExists(roomId, id);
+        if (itemExists) await faunaClient.query(q.Delete(q.Ref(q.Collection(roomId), id)));
+        return;
     },
     async doesRoomExist(roomId: string): Promise<boolean> {
         return faunaClient.query(q.Exists(q.Collection(roomId)));
