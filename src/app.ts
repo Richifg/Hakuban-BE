@@ -29,7 +29,7 @@ const webSocketManager = new WebSocketManager(server, roomManager, db);
 webSocketManager.start();
 
 // routes
-app.get('/wakeup', (_, res) => {
+app.get('/health', (_, res) => {
     res.send('OK');
 });
 
