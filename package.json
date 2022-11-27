@@ -1,6 +1,6 @@
 {
   "name": "collabtool-be",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "The backend service for an online collaboration tool",
   "main": "dist/app.js",
   "dependencies": {
@@ -26,9 +26,10 @@
     "typescript": "^4.3.5"
   },
   "scripts": {
-    "start": "nodemon -r dotenv/config ./src/app.ts",
-    "start-prod": "node ./dist/app.js",
+    "start-local": "nodemon -r dotenv/config ./src/app.ts",
+    "start": "node ./dist/app.js",
     "build": "npx tsc",
+    "build-full": "npm install && npm run build",
     "test": "jest --watch --detectOpenHandles"
   },
   "repository": {
