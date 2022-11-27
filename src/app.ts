@@ -36,7 +36,7 @@ app.get('/health', (_, res) => {
 app.post('/room', async (req, res) => {
     const password = req.body?.password || '';
     try {
-        const roomId = await db.createRoom(password);
+        const roomId = await db.createRoomCollection(password);
         roomManager.createRoom(roomId);
         res.send(roomId);
     } catch (e) {
@@ -45,6 +45,6 @@ app.post('/room', async (req, res) => {
     }
 });
 
-server.listen(process.env.PORT, () => {
+server.listen(process.env.PORT || 8080, () => {
     console.log(`Opened a websocket server at ${(server.address() as AddressInfo).port}`);
 });
